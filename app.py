@@ -1,11 +1,10 @@
 import streamlit as st
-import pandas as pd
 
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
     page_title="Master Unit Converter",
     page_icon="⚙️",
-    layout="wide" # Cambiado a 'wide' para aprovechar mejor el espacio horizontal
+    layout="wide"
 )
 
 # --- 2. ESTILOS CSS AVANZADOS ---
@@ -32,50 +31,58 @@ st.markdown("""
         margin-bottom: 20px;
     }
 
-    /* Caja de Input (Izquierda) */
-    .input-container {
-        background-color: #f8fafc;
-        border-radius: 10px;
-        padding: 20px;
-        border: 1px solid #cbd5e1;
+    /* Estilo para los "Botones" de selección (Radio Buttons) */
+    div.row-widget.stRadio > div {
+        flex-direction: row;
+        align-items: stretch;
+    }
+    div.row-widget.stRadio > div[role="radiogroup"] > label {
+        background-color: #f1f5f9;
+        padding: 10px 15px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        margin-right: 10px;
+        margin-bottom: 10px;
+        transition: all 0.2s;
+        font-weight: 500;
+    }
+    div.row-widget.stRadio > div[role="radiogroup"] > label:hover {
+        background-color: #e2e8f0;
+        border-color: #cbd5e1;
     }
 
     /* Caja de Resultado (Derecha) */
     .result-box {
         background-color: #ecfdf5; /* Fondo verde muy suave */
-        border-radius: 10px;
-        padding: 20px;
+        border-radius: 12px;
+        padding: 40px 20px; /* Más padding vertical */
         text-align: center;
         border: 2px solid #10b981; /* Borde verde */
-        box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.1);
-        height: 100%;
+        box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.1);
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
+        min-height: 250px; /* Altura mínima garantizada */
     }
     .result-value {
-        font-size: 3rem; /* Números grandes */
+        font-size: 3.5rem; /* Números muy grandes */
         color: #047857;
         font-weight: 800;
-        word-wrap: break-word; /* Evita que números muy largos rompan el diseño */
+        word-wrap: break-word;
         line-height: 1.1;
     }
     .result-unit {
-        font-size: 1.2rem;
+        font-size: 1.5rem;
         color: #065f46;
-        font-weight: 500;
-        margin-top: 10px;
+        font-weight: 600;
+        margin-top: 15px;
     }
-
-    /* Ajustes generales de Streamlit */
-    div[data-baseweb="select"] > div {
-        background-color: #ffffff;
-        border-color: #cbd5e1;
-    }
+    
+    /* Inputs */
     .stNumberInput input {
+        font-size: 1.2rem;
         font-weight: bold;
-        color: #1e293b;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -134,23 +141,26 @@ CONVERSION_FACTORS = {
     }
 }
 
-# --- 4. FUNCIONES LÓGICAS ---
+# --- 4. LÓGICA DE FORMATEO Y CONVERSIÓN ---
 
-def format_number_smart(value):
+def format_clean_number(value):
     """
-    Formatea el número para evitar notación científica y mostrar decimales relevantes.
-    Ejemplo: 123456.789 en lugar de 1.23e+05
+    Formatea el número para mostrar decimales SOLO cuando sea necesario.
+    Elimina ceros a la derecha innecesarios.
     """
     if value == 0:
         return "0"
     
-    # Si es entero, mostrar sin decimales
-    if value.is_integer():
-        return f"{int(value):,}"
+    # Paso 1: Formatear con alta precisión y separador de miles
+    # Usamos 10 decimales por seguridad
+    formatted = "{:,.10f}".format(value)
     
-    # Si es decimal, usar hasta 8 decimales y quitar ceros a la derecha
-    # La coma ',' añade separador de miles
-    formatted = f"{value:,.8f}".rstrip('0').rstrip('.')
+    # Paso 2: Eliminar ceros a la derecha (trailing zeros)
+    formatted = formatted.rstrip('0')
+    
+    # Paso 3: Si quedó un punto decimal al final (ej: "100."), eliminarlo
+    formatted = formatted.rstrip('.')
+    
     return formatted
 
 def convert_temperature(value, from_unit, to_unit):
@@ -168,9 +178,9 @@ def convert_general(value, category, from_unit, to_unit):
 
 # --- 5. INTERFAZ GRÁFICA (UI) ---
 
-# --- BARRA LATERAL (Panel de Control Ágil) ---
+# --- BARRA LATERAL ---
 with st.sidebar:
-    # 1. Logo
+    # Logo
     logo_filename = "logo.png"
     try:
         st.image(logo_filename, use_column_width=True)
@@ -179,77 +189,81 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # 2. Selector de Categoría ÁGIL (Radio Buttons)
-    # Usamos radio buttons porque son un solo clic (más rápidos que selectbox)
-    st.subheader("📍 Seleccione Variable")
+    # SELECTOR DE VARIABLE (Radio Buttons Verticales)
+    st.subheader("📍 VARIABLE")
     category = st.radio(
-        "Categoría:",
+        "Seleccione Magnitud:",
         options=list(CONVERSION_FACTORS.keys()),
-        label_visibility="collapsed" # Ocultamos la etiqueta para que se vea más limpio
+        label_visibility="collapsed"
     )
     
     st.markdown("---")
-    # Mensaje fijo en sidebar
     st.markdown("**Propiedad de CS Sistemas de Aire**")
 
 # --- PANEL PRINCIPAL ---
 st.markdown('<div class="main-header">Calculadora de Conversión</div>', unsafe_allow_html=True)
-
-# Mensaje de propiedad dinámico bajo el título
 st.markdown(f'<div class="branding-text">🛠️ Configurando: {category} | Propiedad de CS Sistemas de Aire</div>', unsafe_allow_html=True)
 
-# Contenedor principal
-with st.container():
-    # Usamos columnas con proporción 2:3 para dar espacio al resultado
-    col_input, col_result = st.columns([1, 1.5], gap="large")
+# Layout de columnas (Input | Resultado)
+col_input, col_result = st.columns([1.5, 1], gap="large")
 
-    # --- COLUMNA IZQUIERDA: INPUTS ---
-    with col_input:
-        st.markdown("### 📥 Datos de Entrada")
-        
-        # El input numérico
-        input_value = st.number_input(
-            "Valor Numérico:", 
-            value=1.0, 
-            format="%.4f", 
-            step=1.0,
-            help="Escriba el valor que desea convertir"
-        )
-        
-        # Lógica para obtener unidades
-        if category == "Temperatura":
-            unit_options = CONVERSION_FACTORS[category]["units"]
-        else:
-            unit_options = list(CONVERSION_FACTORS[category]["units"].keys())
-        
-        # Selectores de unidades
-        # Usamos st.radio horizontal si son pocas unidades (<=3) para ser más ágil, sino selectbox
-        st.write("---")
-        st.markdown("**De (Unidad Origen):**")
-        from_unit = st.selectbox("Seleccione origen", unit_options, label_visibility="collapsed", key="u_from")
-        
-        st.markdown("**A (Unidad Destino):**")
-        to_unit = st.selectbox("Seleccione destino", unit_options, index=1 if len(unit_options)>1 else 0, label_visibility="collapsed", key="u_to")
+# Obtenemos las unidades disponibles
+if category == "Temperatura":
+    unit_options = CONVERSION_FACTORS[category]["units"]
+else:
+    unit_options = list(CONVERSION_FACTORS[category]["units"].keys())
 
-    # --- CÁLCULO ---
-    if category == "Temperatura":
-        result_val = convert_temperature(input_value, from_unit, to_unit)
-    else:
-        result_val = convert_general(input_value, category, from_unit, to_unit)
+with col_input:
+    st.markdown("### 1. Ingrese Valor")
+    input_value = st.number_input(
+        "Valor:", 
+        value=1.0, 
+        format="%.4f", 
+        step=1.0,
+        label_visibility="collapsed"
+    )
+    
+    st.markdown("### 2. Unidad Origen (De)")
+    # Selector tipo BOTÓN (Radio horizontal)
+    from_unit = st.radio(
+        "De:", 
+        unit_options, 
+        horizontal=True, 
+        key="from_u",
+        label_visibility="collapsed"
+    )
+    
+    st.markdown("### 3. Unidad Destino (A)")
+    # Selector tipo BOTÓN (Radio horizontal)
+    # Seleccionamos por defecto el segundo elemento si existe
+    default_idx = 1 if len(unit_options) > 1 else 0
+    to_unit = st.radio(
+        "A:", 
+        unit_options, 
+        index=default_idx, 
+        horizontal=True, 
+        key="to_u",
+        label_visibility="collapsed"
+    )
 
-    # --- COLUMNA DERECHA: RESULTADO ---
-    with col_result:
-        # Formateo sin notación científica
-        final_display = format_number_smart(result_val)
-        
-        st.markdown(f"""
-        <div style="height: 25px;"></div> <div class="result-box">
-            <div style="font-size: 1rem; color: #64748b; margin-bottom: 10px;">RESULTADO FINAL</div>
-            <div class="result-value">{final_display}</div>
-            <div class="result-unit">{to_unit}</div>
-        </div>
-        """, unsafe_allow_html=True)
+# --- CÁLCULO ---
+if category == "Temperatura":
+    result_val = convert_temperature(input_value, from_unit, to_unit)
+else:
+    result_val = convert_general(input_value, category, from_unit, to_unit)
 
-# --- FOOTER ---
+# --- VISUALIZACIÓN ---
+with col_result:
+    # Aplicamos el formateo limpio
+    final_display = format_clean_number(result_val)
+    
+    st.markdown(f"""
+    <div class="result-box">
+        <div style="font-size: 1rem; color: #64748b; margin-bottom: 10px; text-transform: uppercase;">Resultado Final</div>
+        <div class="result-value">{final_display}</div>
+        <div class="result-unit">{to_unit}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Footer
 st.markdown("---")
-st.caption("Aplicación optimizada para uso técnico en ingeniería.")
