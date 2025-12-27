@@ -35,27 +35,30 @@ st.markdown("""
     div.row-widget.stRadio > div {
         flex-direction: row;
         align-items: stretch;
+        flex-wrap: wrap; /* Permite que bajen de línea si no caben */
+        gap: 10px;
     }
     div.row-widget.stRadio > div[role="radiogroup"] > label {
-        background-color: #f1f5f9;
-        padding: 10px 15px;
-        border-radius: 8px;
-        border: 1px solid #e2e8f0;
-        margin-right: 10px;
-        margin-bottom: 10px;
+        background-color: #f8fafc;
+        padding: 8px 16px;
+        border-radius: 6px;
+        border: 1px solid #cbd5e1;
+        margin-right: 0px; /* Controlado por gap */
         transition: all 0.2s;
         font-weight: 500;
+        font-size: 0.9rem;
     }
     div.row-widget.stRadio > div[role="radiogroup"] > label:hover {
         background-color: #e2e8f0;
-        border-color: #cbd5e1;
+        border-color: #94a3b8;
+        cursor: pointer;
     }
 
     /* Caja de Resultado (Derecha) */
     .result-box {
         background-color: #ecfdf5; /* Fondo verde muy suave */
         border-radius: 12px;
-        padding: 40px 20px; /* Más padding vertical */
+        padding: 40px 20px;
         text-align: center;
         border: 2px solid #10b981; /* Borde verde */
         box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.1);
@@ -63,10 +66,11 @@ st.markdown("""
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        min-height: 250px; /* Altura mínima garantizada */
+        min-height: 250px;
     }
     .result-value {
-        font-size: 3.5rem; /* Números muy grandes */
+        /* Usamos clamp para que el texto se reduzca si es MUY largo */
+        font-size: clamp(2rem, 5vw, 3.5rem); 
         color: #047857;
         font-weight: 800;
         word-wrap: break-word;
@@ -145,22 +149,26 @@ CONVERSION_FACTORS = {
 
 def format_clean_number(value):
     """
-    Formatea el número para mostrar decimales SOLO cuando sea necesario.
-    Elimina ceros a la derecha innecesarios.
+    Formatea el número a MÁXIMO 4 decimales.
+    Si el número es 100.0000 -> Devuelve "100"
+    Si el número es 10.123456 -> Devuelve "10.1235"
     """
     if value == 0:
         return "0"
     
-    # Paso 1: Formatear con alta precisión y separador de miles
-    # Usamos 10 decimales por seguridad
-    formatted = "{:,.10f}".format(value)
+    # 1. Formatear fijo a 4 decimales con comas de miles
+    # Ejemplo: 1234.56789 -> "1,234.5679"
+    formatted = "{:,.4f}".format(value)
     
-    # Paso 2: Eliminar ceros a la derecha (trailing zeros)
-    formatted = formatted.rstrip('0')
+    # 2. Limpiar ceros a la derecha y punto si sobra
+    # "10.5000" -> "10.5"
+    # "100.0000" -> "100"
+    formatted = formatted.rstrip('0').rstrip('.')
     
-    # Paso 3: Si quedó un punto decimal al final (ej: "100."), eliminarlo
-    formatted = formatted.rstrip('.')
-    
+    # Caso especial: Si el redondeo lo dejó vacío o solo signo (aunque es raro con el format anterior)
+    if formatted == "" or formatted == "-":
+        return "0"
+        
     return formatted
 
 def convert_temperature(value, from_unit, to_unit):
@@ -224,7 +232,7 @@ with col_input:
     )
     
     st.markdown("### 2. Unidad Origen (De)")
-    # Selector tipo BOTÓN (Radio horizontal)
+    # Selector tipo BOTÓN (Radio horizontal con wrapping)
     from_unit = st.radio(
         "De:", 
         unit_options, 
@@ -234,7 +242,7 @@ with col_input:
     )
     
     st.markdown("### 3. Unidad Destino (A)")
-    # Selector tipo BOTÓN (Radio horizontal)
+    # Selector tipo BOTÓN (Radio horizontal con wrapping)
     # Seleccionamos por defecto el segundo elemento si existe
     default_idx = 1 if len(unit_options) > 1 else 0
     to_unit = st.radio(
@@ -254,7 +262,7 @@ else:
 
 # --- VISUALIZACIÓN ---
 with col_result:
-    # Aplicamos el formateo limpio
+    # Aplicamos el formateo limpio limitado a 4 decimales
     final_display = format_clean_number(result_val)
     
     st.markdown(f"""
